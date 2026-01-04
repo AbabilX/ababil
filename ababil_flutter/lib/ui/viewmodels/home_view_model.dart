@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ababil_flutter/data/repositories/http_repository.dart';
 import 'package:ababil_flutter/domain/models/http_request.dart';
 import 'package:ababil_flutter/domain/models/http_response.dart';
+import 'package:ababil_flutter/domain/models/postman/request.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final HttpRepository _httpRepository;
@@ -106,28 +107,35 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Build URL with query params
-      String finalUrl = _url;
-      if (_params.isNotEmpty) {
-        final queryString = _params.entries
-            .map(
-              (e) =>
-                  '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}',
-            )
-            .join('&');
-        finalUrl = '$finalUrl?$queryString';
+      // Build query parameters list
+      final queryParams = _params.entries
+          .map((e) => QueryParam(key: e.key, value: e.value))
+          .toList();
+
+      // Build headers list (only enabled ones)
+      final enabledHeaders = _headers.entries
+          .where((e) => !_disabledHeaders.contains(e.key))
+          .map((e) => RequestHeader(key: e.key, value: e.value))
+          .toList();
+
+      // Build body
+      RequestBody? requestBody;
+      if (_shouldIncludeBody() && _body.isNotEmpty) {
+        requestBody = RequestBody(mode: 'raw', raw: _body);
       }
 
-      // Only include enabled headers in the request
-      final enabledHeaders = Map<String, String>.fromEntries(
-        _headers.entries.where((e) => !_disabledHeaders.contains(e.key)),
+      // Build URL structure
+      final requestUrl = RequestUrl(
+        raw: _url,
+        query: queryParams.isNotEmpty ? queryParams : null,
       );
 
+      // Create full request structure
       final request = HttpRequest(
         method: _selectedMethod,
-        url: finalUrl,
-        headers: enabledHeaders,
-        body: _shouldIncludeBody() ? _body : null,
+        url: requestUrl,
+        header: enabledHeaders.isNotEmpty ? enabledHeaders : null,
+        body: requestBody,
       );
 
       _response = await _httpRepository.sendRequest(request);
@@ -150,6 +158,60 @@ class HomeViewModel extends ChangeNotifier {
   void clearResponse() {
     _response = null;
     _error = null;
+    notifyListeners();
+  }
+
+  void loadFromPostmanRequest(PostmanRequest postmanRequest) {
+    // Set method
+    if (postmanRequest.method != null) {
+      _selectedMethod = postmanRequest.method!;
+    }
+
+    // Set URL
+    if (postmanRequest.url != null) {
+      if (postmanRequest.url!.raw != null) {
+        _url = postmanRequest.url!.raw!;
+      } else if (postmanRequest.url!.host != null &&
+          postmanRequest.url!.path != null) {
+        // Build URL from components
+        final protocol = postmanRequest.url!.protocol ?? 'https';
+        final host = postmanRequest.url!.host!.join('.');
+        final path = postmanRequest.url!.path!.join('/');
+        _url = '$protocol://$host/$path';
+      }
+    }
+
+    // Set headers
+    if (postmanRequest.header != null) {
+      _headers.clear();
+      _disabledHeaders.clear();
+      for (final header in postmanRequest.header!) {
+        if (header.disabled != true) {
+          _headers[header.key] = header.value;
+        } else {
+          _disabledHeaders.add(header.key);
+          _headers[header.key] = header.value;
+        }
+      }
+    }
+
+    // Set body
+    if (postmanRequest.body != null) {
+      if (postmanRequest.body!.raw != null) {
+        _body = postmanRequest.body!.raw!;
+      }
+    }
+
+    // Set query params
+    if (postmanRequest.url != null && postmanRequest.url!.query != null) {
+      _params.clear();
+      for (final param in postmanRequest.url!.query!) {
+        if (!(param.disabled ?? false) && param.value != null) {
+          _params[param.key] = param.value!;
+        }
+      }
+    }
+
     notifyListeners();
   }
 }

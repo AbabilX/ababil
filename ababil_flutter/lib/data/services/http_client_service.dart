@@ -1,159 +1,35 @@
 import 'dart:ffi';
-import 'dart:io';
 import 'dart:convert';
 import 'package:ffi/ffi.dart';
-import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:ababil_flutter/domain/models/http_response.dart';
+import 'package:ababil_flutter/domain/models/http_request.dart';
+import 'package:ababil_flutter/data/services/native_library_service.dart';
 
 typedef MakeHttpRequestNative =
-    Pointer<Utf8> Function(
-      Pointer<Utf8> method,
-      Pointer<Utf8> url,
-      Pointer<Utf8> headers,
-      Pointer<Utf8> body,
-    );
-
-typedef MakeHttpRequestDart =
-    Pointer<Utf8> Function(
-      Pointer<Utf8> method,
-      Pointer<Utf8> url,
-      Pointer<Utf8> headers,
-      Pointer<Utf8> body,
-    );
-
-typedef FreeStringNative = Void Function(Pointer<Utf8>);
-typedef FreeStringDart = void Function(Pointer<Utf8>);
+    Pointer<Utf8> Function(Pointer<Utf8> requestJson);
+typedef MakeHttpRequestDart = Pointer<Utf8> Function(Pointer<Utf8> requestJson);
 
 class HttpClientService {
-  static DynamicLibrary? _dylib;
   static MakeHttpRequestDart? _makeHttpRequest;
-  static FreeStringDart? _freeString;
 
   static Future<void> initialize() async {
-    if (_dylib != null) return;
+    await NativeLibraryService.initialize();
 
-    try {
-      if (Platform.isAndroid) {
-        _dylib = DynamicLibrary.open('libababil_core.so');
-      } else if (Platform.isIOS) {
-        _dylib = DynamicLibrary.process();
-      } else if (Platform.isMacOS) {
-        // For macOS, try multiple locations
-        final List<String> pathsToTry = [];
-
-        // Get the executable path to find the app bundle
-        final executablePath = Platform.resolvedExecutable;
-        final executableDir = File(executablePath).parent.path;
-
-        // 1. Try app bundle Frameworks (Contents/Frameworks inside .app)
-        // This is the standard location for frameworks in macOS apps
-        pathsToTry.add('$executableDir/../Frameworks/libababil_core.dylib');
-
-        // 2. Try app bundle Resources (alternative location)
-        pathsToTry.add('$executableDir/../Resources/libababil_core.dylib');
-
-        // 3. Try development path (when running with flutter run)
-        final currentDir = Directory.current.path;
-        pathsToTry.add(
-          '$currentDir/macos/Runner/Frameworks/libababil_core.dylib',
-        );
-        pathsToTry.add(
-          '$currentDir/ababil_flutter/macos/Runner/Frameworks/libababil_core.dylib',
-        );
-
-        // 4. Try Documents directory approach
-        try {
-          final directory = await getApplicationDocumentsDirectory();
-          pathsToTry.add(
-            '${directory.path}/../Frameworks/libababil_core.dylib',
-          );
-        } catch (e) {
-          // Ignore if we can't get documents directory
-        }
-
-        // 5. Try relative to executable
-        pathsToTry.add('libababil_core.dylib');
-
-        // 6. Try absolute path from project root
-        final homeDir = Platform.environment['HOME'] ?? '';
-        if (homeDir.isNotEmpty) {
-          pathsToTry.add(
-            '$homeDir/Projects/open-source/ababil/ababil_flutter/macos/Runner/Frameworks/libababil_core.dylib',
-          );
-          pathsToTry.add(
-            '$homeDir/Projects/open-source/ababil/ababil_core/target/release/libababil_core.dylib',
-          );
-        }
-
-        for (final path in pathsToTry) {
-          try {
-            _dylib = DynamicLibrary.open(path);
-            if (kDebugMode) {
-              print('Successfully loaded library from: $path');
-            }
-            break;
-          } catch (e) {
-            // Only print debug info if all paths fail
-            if (kDebugMode) {
-              print('Error loading library from: $path: $e');
-            }
-          }
-        }
-
-        if (_dylib == null) {
-          if (kDebugMode) {
-            print(
-              'ERROR: Could not load libababil_core.dylib from any of these paths:',
-            );
-          }
-          if (kDebugMode) {
-            print('\nTo fix this:');
-            print(
-              '1. Build the Rust core: cd ababil_core && cargo build --release',
-            );
-            print(
-              '2. Copy the library: cp ababil_core/target/release/libababil_core.dylib ababil_flutter/macos/Runner/Frameworks/',
-            );
-            print('3. Or run: ./build.sh');
-          }
-        }
-      } else if (Platform.isLinux) {
-        _dylib = DynamicLibrary.open('libababil_core.so');
-      } else if (Platform.isWindows) {
-        _dylib = DynamicLibrary.open('ababil_core.dll');
-      }
-
-      if (_dylib != null) {
-        _makeHttpRequest = _dylib!
+    if (NativeLibraryService.isInitialized) {
+      final dylib = NativeLibraryService.library;
+      if (dylib != null) {
+        _makeHttpRequest = dylib
             .lookupFunction<MakeHttpRequestNative, MakeHttpRequestDart>(
               'make_http_request',
             );
-        _freeString = _dylib!.lookupFunction<FreeStringNative, FreeStringDart>(
-          'free_string',
-        );
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error loading native library: $e');
-      }
-      if (kDebugMode) {
-        print(
-          'Make sure to build the Rust library first: cd ababil_core && cargo build --release',
-        );
       }
     }
   }
 
-  Future<HttpResponse> makeRequest({
-    required String method,
-    required String url,
-    Map<String, String> headers = const {},
-    String? body,
-  }) async {
+  Future<HttpResponse> makeRequest(HttpRequest request) async {
     await initialize();
 
-    if (_makeHttpRequest == null || _freeString == null) {
+    if (_makeHttpRequest == null || !NativeLibraryService.isInitialized) {
       return HttpResponse(
         statusCode: 0,
         headers: {},
@@ -164,22 +40,14 @@ class HttpClientService {
     }
 
     try {
-      final methodPtr = method.toNativeUtf8();
-      final urlPtr = url.toNativeUtf8();
-      final headersJson = jsonEncode(
-        headers.entries.map((e) => [e.key, e.value]).toList(),
-      );
-      final headersPtr = headersJson.toNativeUtf8();
-      final bodyPtr = body?.toNativeUtf8() ?? Pointer<Utf8>.fromAddress(0);
+      // Convert request to JSON
+      final requestJson = jsonEncode(request.toJson());
+      final requestPtr = requestJson.toNativeUtf8();
 
-      final responsePtr = _makeHttpRequest!(
-        methodPtr,
-        urlPtr,
-        headersPtr,
-        bodyPtr,
-      );
+      final responsePtr = _makeHttpRequest!(requestPtr);
 
       if (responsePtr.address == 0) {
+        malloc.free(requestPtr);
         return HttpResponse(
           statusCode: 0,
           headers: {},
@@ -189,14 +57,8 @@ class HttpClientService {
       }
 
       final responseJson = responsePtr.toDartString();
-      _freeString!(responsePtr);
-
-      malloc.free(methodPtr);
-      malloc.free(urlPtr);
-      malloc.free(headersPtr);
-      if (bodyPtr.address != 0) {
-        malloc.free(bodyPtr);
-      }
+      NativeLibraryService.freeString(responsePtr);
+      malloc.free(requestPtr);
 
       return _parseResponse(responseJson);
     } catch (e) {

@@ -9,12 +9,7 @@ class HttpRepository {
     : _httpClientService = httpClientService ?? HttpClientService();
 
   Future<HttpResponse> sendRequest(HttpRequest request) async {
-    return await _httpClientService.makeRequest(
-      method: request.method,
-      url: request.url,
-      headers: request.headers,
-      body: request.body,
-    );
+    return await _httpClientService.makeRequest(request);
   }
 
   Future<HttpResponse> sendRequestWithParams({
@@ -23,7 +18,7 @@ class HttpRepository {
     Map<String, String> headers = const {},
     String? body,
   }) async {
-    final request = HttpRequest(
+    final request = HttpRequest.simple(
       method: method,
       url: url,
       headers: headers,

@@ -13,6 +13,7 @@ import 'package:ababil_flutter/ui/widgets/resizable_sidebar.dart';
 import 'package:ababil_flutter/ui/widgets/top_bar.dart';
 import 'package:ababil_flutter/ui/widgets/params_panel.dart';
 import 'package:ababil_flutter/ui/widgets/response_tab_bar.dart';
+import 'package:ababil_flutter/ui/viewmodels/collections_view_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,6 +24,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final HomeViewModel _viewModel;
+  late final CollectionsViewModel _collectionsViewModel;
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _bodyController = TextEditingController();
 
@@ -39,7 +41,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _viewModel = HomeViewModel();
+    _collectionsViewModel = CollectionsViewModel();
     _viewModel.addListener(_onViewModelChanged);
+    _collectionsViewModel.addListener(_onViewModelChanged);
     _urlController.text = _viewModel.url;
     _urlController.addListener(() => _viewModel.setUrl(_urlController.text));
     _bodyController.addListener(() => _viewModel.setBody(_bodyController.text));
@@ -48,13 +52,22 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _viewModel.removeListener(_onViewModelChanged);
+    _collectionsViewModel.removeListener(_onViewModelChanged);
     _viewModel.dispose();
+    _collectionsViewModel.dispose();
     _urlController.dispose();
     _bodyController.dispose();
     super.dispose();
   }
 
   void _onViewModelChanged() {
+    // Update controllers when view model changes
+    if (_urlController.text != _viewModel.url) {
+      _urlController.text = _viewModel.url;
+    }
+    if (_bodyController.text != _viewModel.body) {
+      _bodyController.text = _viewModel.body;
+    }
     setState(() {});
   }
 
@@ -402,7 +415,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   initialWidth: 240,
                   minWidth: 180,
                   maxWidth: 400,
-                  child: const Sidebar(),
+                  child: Sidebar(
+                    collectionsViewModel: _collectionsViewModel,
+                    homeViewModel: _viewModel,
+                  ),
                 ),
                 Expanded(
                   child: Container(

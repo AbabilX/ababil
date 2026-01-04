@@ -1,7 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:ababil_flutter/ui/viewmodels/collections_view_model.dart';
+import 'package:ababil_flutter/ui/viewmodels/home_view_model.dart';
+import 'package:ababil_flutter/ui/widgets/import_export_dialog.dart';
+import 'package:ababil_flutter/domain/models/postman/collection.dart';
+import 'package:ababil_flutter/domain/models/postman/request.dart';
 
 class Sidebar extends StatefulWidget {
-  const Sidebar({super.key});
+  final CollectionsViewModel collectionsViewModel;
+  final HomeViewModel homeViewModel;
+
+  const Sidebar({
+    super.key,
+    required this.collectionsViewModel,
+    required this.homeViewModel,
+  });
 
   @override
   State<Sidebar> createState() => _SidebarState();
@@ -139,9 +151,14 @@ class _SidebarState extends State<Sidebar> {
   Widget _buildContentArea() {
     switch (_selectedNavIndex) {
       case 0: // Collections
-        return _CollectionsView();
+        return _CollectionsView(
+          collectionsViewModel: widget.collectionsViewModel,
+          homeViewModel: widget.homeViewModel,
+        );
       case 1: // Environments
-        return const Center(child: Text('Environments - Coming soon'));
+        return _EnvironmentsView(
+          collectionsViewModel: widget.collectionsViewModel,
+        );
       case 2: // History
         return const Center(child: Text('History - Coming soon'));
       case 3: // Flows
@@ -201,91 +218,119 @@ class _NavIcon extends StatelessWidget {
 }
 
 class _CollectionsView extends StatelessWidget {
+  final CollectionsViewModel collectionsViewModel;
+  final HomeViewModel homeViewModel;
+
+  const _CollectionsView({
+    required this.collectionsViewModel,
+    required this.homeViewModel,
+  });
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Add and search
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.add, size: 18),
-                onPressed: () {},
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                tooltip: 'New Collection',
-              ),
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search collections',
-                    hintStyle: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).textTheme.bodySmall?.color,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: BorderSide(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? const Color(0xFF3D3D3D)
-                            : Colors.grey.shade300,
+    return ListenableBuilder(
+      listenable: collectionsViewModel,
+      builder: (context, _) {
+        return Column(
+          children: [
+            // Add and search
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.add, size: 18),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'New Collection',
+                    onSelected: (value) {
+                      if (value == 'import') {
+                        ImportExportDialog.showImportCollectionDialog(
+                          context,
+                          collectionsViewModel,
+                        );
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'import',
+                        child: Text('Import Collection'),
                       ),
-                    ),
-                    filled: true,
-                    fillColor: Theme.of(context).cardTheme.color,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
-                    ),
-                    isDense: true,
+                    ],
                   ),
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Collections list
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            children: [
-              _CollectionItem(name: 'loadtesting', isExpanded: false),
-              _CollectionItem(
-                name: 'poruaa',
-                isExpanded: true,
-                requests: [
-                  _RequestItem(method: 'POST', name: 'login', isSelected: true),
-                  _RequestItem(method: 'GET', name: 'root'),
-                  _RequestItem(method: 'GET', name: 'payment'),
-                  _RequestItem(method: 'POST', name: 'payment/ipn'),
-                  _RequestItem(method: 'GET', name: 'New Request'),
-                  _RequestItem(method: 'GET', name: 'New Request'),
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search collections',
+                        hintStyle: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: BorderSide(
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF3D3D3D)
+                                : Colors.grey.shade300,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Theme.of(context).cardTheme.color,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        isDense: true,
+                      ),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
                 ],
               ),
-              _CollectionItem(
-                name: 'Referral Marketing API',
-                isExpanded: false,
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+            // Collections list
+            Expanded(
+              child: collectionsViewModel.collections.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No collections\nClick + to import',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      children: collectionsViewModel.collections
+                          .map(
+                            (collection) => _CollectionItem(
+                              collection: collection,
+                              collectionsViewModel: collectionsViewModel,
+                              homeViewModel: homeViewModel,
+                            ),
+                          )
+                          .toList(),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
 class _CollectionItem extends StatefulWidget {
-  final String name;
-  final bool isExpanded;
-  final List<_RequestItem>? requests;
+  final PostmanCollection collection;
+  final CollectionsViewModel collectionsViewModel;
+  final HomeViewModel homeViewModel;
 
   const _CollectionItem({
-    required this.name,
-    this.isExpanded = false,
-    this.requests,
+    required this.collection,
+    required this.collectionsViewModel,
+    required this.homeViewModel,
   });
 
   @override
@@ -293,13 +338,7 @@ class _CollectionItem extends StatefulWidget {
 }
 
 class _CollectionItemState extends State<_CollectionItem> {
-  late bool _isExpanded;
-
-  @override
-  void initState() {
-    super.initState();
-    _isExpanded = widget.isExpanded;
-  }
+  bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -324,34 +363,89 @@ class _CollectionItemState extends State<_CollectionItem> {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    widget.name,
+                    widget.collection.info.name,
                     style: const TextStyle(fontSize: 13),
                   ),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, size: 16),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onSelected: (value) {
+                    if (value == 'export') {
+                      ImportExportDialog.showExportCollectionDialog(
+                        context,
+                        widget.collectionsViewModel,
+                        widget.collection,
+                      );
+                    } else if (value == 'delete') {
+                      widget.collectionsViewModel.removeCollection(
+                        widget.collection,
+                      );
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'export', child: Text('Export')),
+                    const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
                 ),
               ],
             ),
           ),
         ),
-        if (_isExpanded && widget.requests != null)
-          ...widget.requests!.map((request) => request),
+        if (_isExpanded) ..._buildRequestItems(widget.collection.item),
       ],
     );
+  }
+
+  List<Widget> _buildRequestItems(List<PostmanCollectionItem> items) {
+    final widgets = <Widget>[];
+    for (final item in items) {
+      if (item.request != null) {
+        widgets.add(
+          _RequestItem(
+            collectionName: widget.collection.info.name,
+            requestName: item.name,
+            request: item.request!,
+            isSelected:
+                widget.collectionsViewModel.selectedRequestId ==
+                '${widget.collection.info.name}::${item.name}',
+            onTap: () {
+              widget.collectionsViewModel.selectRequest(
+                '${widget.collection.info.name}::${item.name}',
+              );
+              widget.homeViewModel.loadFromPostmanRequest(item.request!);
+            },
+          ),
+        );
+      }
+      if (item.item != null) {
+        // Handle nested folders
+        widgets.addAll(_buildRequestItems(item.item!));
+      }
+    }
+    return widgets;
   }
 }
 
 class _RequestItem extends StatelessWidget {
-  final String method;
-  final String name;
+  final String collectionName;
+  final String requestName;
+  final PostmanRequest request;
   final bool isSelected;
+  final VoidCallback onTap;
 
   const _RequestItem({
-    required this.method,
-    required this.name,
-    this.isSelected = false,
+    required this.collectionName,
+    required this.requestName,
+    required this.request,
+    required this.isSelected,
+    required this.onTap,
   });
 
   Color _getMethodColor() {
-    switch (method.toUpperCase()) {
+    final method = request.method?.toUpperCase() ?? 'GET';
+    switch (method) {
       case 'GET':
         return Colors.green;
       case 'POST':
@@ -370,7 +464,7 @@ class _RequestItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.only(left: 20, top: 4, bottom: 4),
         decoration: BoxDecoration(
@@ -381,7 +475,7 @@ class _RequestItem extends StatelessWidget {
         child: Row(
           children: [
             Text(
-              method,
+              request.method ?? 'GET',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -391,7 +485,7 @@ class _RequestItem extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                name,
+                requestName,
                 style: TextStyle(
                   fontSize: 12,
                   color: isSelected
@@ -403,6 +497,99 @@ class _RequestItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _EnvironmentsView extends StatelessWidget {
+  final CollectionsViewModel collectionsViewModel;
+
+  const _EnvironmentsView({required this.collectionsViewModel});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: collectionsViewModel,
+      builder: (context, _) {
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.add, size: 18),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Import Environment',
+                    onSelected: (value) {
+                      if (value == 'import') {
+                        ImportExportDialog.showImportEnvironmentDialog(
+                          context,
+                          collectionsViewModel,
+                        );
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'import',
+                        child: Text('Import Environment'),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                ],
+              ),
+            ),
+            Expanded(
+              child: collectionsViewModel.environments.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No environments\nClick + to import',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      children: collectionsViewModel.environments
+                          .map(
+                            (env) => ListTile(
+                              title: Text(env.name),
+                              trailing: PopupMenuButton<String>(
+                                onSelected: (value) {
+                                  if (value == 'export') {
+                                    ImportExportDialog.showExportEnvironmentDialog(
+                                      context,
+                                      collectionsViewModel,
+                                      env,
+                                    );
+                                  } else if (value == 'delete') {
+                                    collectionsViewModel.removeEnvironment(env);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'export',
+                                    child: Text('Export'),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
