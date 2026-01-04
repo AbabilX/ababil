@@ -401,7 +401,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildResponseContent() {
     switch (_responseTabIndex) {
       case 0: // Body
-        return ResponseBodyViewer(body: _viewModel.response!.body);
+        return ResponseBodyViewer(
+          body: _viewModel.response!.body,
+          headers: _viewModel.response!.headers,
+        );
       case 1: // Cookies
         return const Center(child: Text('Cookies - Coming soon'));
       case 2: // Headers
@@ -409,7 +412,10 @@ class _HomeScreenState extends State<HomeScreen> {
       case 3: // Test Results
         return const Center(child: Text('Test Results - Coming soon'));
       default:
-        return ResponseBodyViewer(body: _viewModel.response!.body);
+        return ResponseBodyViewer(
+          body: _viewModel.response!.body,
+          headers: _viewModel.response!.headers,
+        );
     }
   }
 

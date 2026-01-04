@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:ababil_flutter/ui/screens/home_screen.dart';
 import 'package:ababil_flutter/ui/theme/app_theme.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const AbabilApp());
 }
 
