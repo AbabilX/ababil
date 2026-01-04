@@ -26,12 +26,13 @@ class _AuthorizationPanelState extends State<AuthorizationPanel> {
   TextEditingController _getController(String key, String initialValue) {
     if (!_controllers.containsKey(key)) {
       final controller = TextEditingController(text: initialValue);
-      final listener = () {
+      void listener() {
         final currentValue = controller.text;
         if (_authFields[key]?['value'] != currentValue) {
           _onFieldChanged(key, currentValue);
         }
-      };
+      }
+
       controller.addListener(listener);
       _controllers[key] = controller;
       _controllerListeners[key] = listener;
