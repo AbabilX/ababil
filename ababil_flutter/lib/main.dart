@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:ababil_flutter/screens/home_screen.dart';
+import 'package:ababil_flutter/ui/screens/home_screen.dart';
+import 'package:ababil_flutter/ui/theme/app_theme.dart';
 
 void main() {
   runApp(const AbabilApp());
@@ -12,11 +13,9 @@ class AbabilApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Ababil',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.darkTheme,
       home: const HomeScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }

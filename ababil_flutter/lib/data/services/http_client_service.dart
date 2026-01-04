@@ -2,7 +2,9 @@ import 'dart:ffi';
 import 'dart:io';
 import 'dart:convert';
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:ababil_flutter/domain/models/http_response.dart';
 
 typedef MakeHttpRequestNative =
     Pointer<Utf8> Function(
@@ -23,7 +25,7 @@ typedef MakeHttpRequestDart =
 typedef FreeStringNative = Void Function(Pointer<Utf8>);
 typedef FreeStringDart = void Function(Pointer<Utf8>);
 
-class HttpClient {
+class HttpClientService {
   static DynamicLibrary? _dylib;
   static MakeHttpRequestDart? _makeHttpRequest;
   static FreeStringDart? _freeString;
@@ -84,40 +86,37 @@ class HttpClient {
           );
         }
 
-        Object? lastException;
         for (final path in pathsToTry) {
           try {
             _dylib = DynamicLibrary.open(path);
-            print('Successfully loaded library from: $path');
+            if (kDebugMode) {
+              print('Successfully loaded library from: $path');
+            }
             break;
           } catch (e) {
-            lastException = e;
             // Only print debug info if all paths fail
+            if (kDebugMode) {
+              print('Error loading library from: $path: $e');
+            }
           }
         }
 
         if (_dylib == null) {
-          print(
-            'ERROR: Could not load libababil_core.dylib from any of these paths:',
-          );
-          for (final path in pathsToTry) {
-            final file = File(path);
-            final exists = file.existsSync();
+          if (kDebugMode) {
             print(
-              '  ${exists ? "✓" : "✗"} $path ${exists ? "(exists)" : "(not found)"}',
+              'ERROR: Could not load libababil_core.dylib from any of these paths:',
             );
           }
-          if (lastException != null) {
-            print('Last error: $lastException');
+          if (kDebugMode) {
+            print('\nTo fix this:');
+            print(
+              '1. Build the Rust core: cd ababil_core && cargo build --release',
+            );
+            print(
+              '2. Copy the library: cp ababil_core/target/release/libababil_core.dylib ababil_flutter/macos/Runner/Frameworks/',
+            );
+            print('3. Or run: ./build.sh');
           }
-          print('\nTo fix this:');
-          print(
-            '1. Build the Rust core: cd ababil_core && cargo build --release',
-          );
-          print(
-            '2. Copy the library: cp ababil_core/target/release/libababil_core.dylib ababil_flutter/macos/Runner/Frameworks/',
-          );
-          print('3. Or run: ./build.sh');
         }
       } else if (Platform.isLinux) {
         _dylib = DynamicLibrary.open('libababil_core.so');
@@ -135,14 +134,18 @@ class HttpClient {
         );
       }
     } catch (e) {
-      print('Error loading native library: $e');
-      print(
-        'Make sure to build the Rust library first: cd ababil_core && cargo build --release',
-      );
+      if (kDebugMode) {
+        print('Error loading native library: $e');
+      }
+      if (kDebugMode) {
+        print(
+          'Make sure to build the Rust library first: cd ababil_core && cargo build --release',
+        );
+      }
     }
   }
 
-  static Future<HttpResponse> makeRequest({
+  Future<HttpResponse> makeRequest({
     required String method,
     required String url,
     Map<String, String> headers = const {},
@@ -206,7 +209,7 @@ class HttpClient {
     }
   }
 
-  static HttpResponse _parseResponse(String json) {
+  HttpResponse _parseResponse(String json) {
     try {
       final decoded = jsonDecode(json) as Map<String, dynamic>;
       final headers = <String, String>{};
@@ -235,18 +238,4 @@ class HttpClient {
       );
     }
   }
-}
-
-class HttpResponse {
-  final int statusCode;
-  final Map<String, String> headers;
-  final String body;
-  final int durationMs;
-
-  HttpResponse({
-    required this.statusCode,
-    required this.headers,
-    required this.body,
-    required this.durationMs,
-  });
 }
