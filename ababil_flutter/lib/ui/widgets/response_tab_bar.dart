@@ -37,7 +37,7 @@ class ResponseTabBar extends StatelessWidget {
 
   Color _getStatusColor(int code) {
     if (code >= 200 && code < 300) return Colors.green;
-    if (code >= 300 && code < 400) return Colors.orange;
+    if (code >= 300 && code < 400) return Colors.blue;
     if (code >= 400 && code < 500) return Colors.red;
     if (code >= 500) return Colors.red;
     return Colors.grey;
@@ -92,7 +92,7 @@ class ResponseTabBar extends StatelessWidget {
                         border: Border(
                           bottom: BorderSide(
                             color: isSelected
-                                ? Colors.orange
+                                ? Colors.blue
                                 : Colors.transparent,
                             width: 2,
                           ),

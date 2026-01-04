@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Postman-inspired color palette
-  static const Color primaryColor = Color(0xFFFF6C37); // Postman orange
+  // Blue-themed color palette
+  static const Color primaryColor = Color(0xFF2196F3); // Blue primary
   static const Color backgroundColor = Color(0xFF1E1E1E); // Dark background
   static const Color surfaceColor = Color(0xFF252525);
   static const Color cardColor = Color(0xFF2D2D2D);

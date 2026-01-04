@@ -526,7 +526,7 @@ class _RequestItem extends StatelessWidget {
       case 'PUT':
         return Colors.blue;
       case 'PATCH':
-        return Colors.orange;
+        return Colors.blue.shade300;
       case 'DELETE':
         return Colors.red;
       default:
