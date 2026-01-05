@@ -2,7 +2,7 @@
 **/target/
 **/Cargo.lock
 *.h
-
+*node_modules/
 # Flutter
 **/.dart_tool/
 **/.flutter-plugins
